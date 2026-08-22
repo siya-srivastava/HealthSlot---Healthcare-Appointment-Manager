@@ -37,15 +37,16 @@ app.use('/api/doctor', doctorRoutes);
 app.use('/api/calendar', calendarRoutes);
 
 const connectDB = async () => {
-  if (process.env.MONGO_URI) {
+  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  if (mongoUri) {
     try {
-      await mongoose.connect(process.env.MONGO_URI);
-      console.log('MongoDB connected successfully via MONGO_URI');
+      await mongoose.connect(mongoUri);
+      console.log('MongoDB connected successfully via MONGODB_URI/MONGO_URI');
       await seedDemoData();
       startReminderJob();
       return;
     } catch (err) {
-      console.log('Failed to connect to configured MONGO_URI:', err.message);
+      console.log('Failed to connect to configured MongoDB URI:', err.message);
     }
   }
 
