@@ -97,16 +97,20 @@ const bookAppointment = async (req, res) => {
     const doctor = await Doctor.findById(doctorId).populate('user', 'name email googleRefreshToken');
 
     if (patient && doctor) {
-      sendEmail(
-        patient.email,
-        'Appointment Confirmed',
-        bookingConfirmationEmail(patient.name, doctor.user.name, slotStart)
-      );
-      sendEmail(
-        doctor.user.email,
-        'New Appointment Booked',
-        `<p>You have a new appointment with ${patient.name} on ${new Date(slotStart).toLocaleString()}.</p><p>Urgency: <strong>${preVisitSummary.urgency}</strong></p>`
-      );
+      try {
+        await sendEmail(
+          patient.email,
+          'Appointment Confirmed',
+          bookingConfirmationEmail(patient.name, doctor.user.name, slotStart)
+        );
+        await sendEmail(
+          doctor.user.email,
+          'New Appointment Booked',
+          `<p>You have a new appointment with ${patient.name} on ${new Date(slotStart).toLocaleString()}.</p><p>Urgency: <strong>${preVisitSummary.urgency}</strong></p>`
+        );
+      } catch (eErr) {
+        console.error('Email dispatch error:', eErr.message);
+      }
 
       if (patient.googleRefreshToken) {
         const result = await createCalendarEvent(patient.googleRefreshToken, {

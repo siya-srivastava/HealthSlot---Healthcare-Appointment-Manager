@@ -127,16 +127,20 @@ const addLeaveDay = async (req, res) => {
       await appt.save();
 
       if (appt.patient?.email) {
-        sendEmail(
-          appt.patient.email,
-          'Appointment Cancelled - Doctor Unavailable',
-          cancellationEmail(
-            appt.patient.name,
-            doctor.user.name,
-            appt.slotStart,
-            'Doctor is marked on leave on this date. Please log in and rebook for another convenient slot.'
-          )
-        );
+        try {
+          await sendEmail(
+            appt.patient.email,
+            'Appointment Cancelled - Doctor Unavailable',
+            cancellationEmail(
+              appt.patient.name,
+              doctor.user.name,
+              appt.slotStart,
+              'Doctor is marked on leave on this date. Please log in and rebook for another convenient slot.'
+            )
+          );
+        } catch (eErr) {
+          console.error('Leave cancellation email error:', eErr.message);
+        }
       }
     }
 
