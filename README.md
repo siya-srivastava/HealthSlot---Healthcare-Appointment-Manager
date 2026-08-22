@@ -2,6 +2,8 @@
 
 HealthSlot is a web platform designed to streamline outpatient appointment booking, clinical consultation preparation, and post-visit patient follow-ups. It provides role-specific dashboards for patients, doctors, and clinic administrators, alongside automated pre-visit symptom evaluation and daily medication reminder jobs.
 
+**Live Application URL**: https://healthslot-healthcare-appointment.onrender.com/
+
 ---
 
 ## Getting Started
