@@ -55,30 +55,21 @@ export const LoginPage = () => {
         redirectByRole(loggedInUser.role);
         return;
       } catch (loginErr) {
-        if (demoRole === 'patient') {
+        try {
+          await authAPI.seedDemo();
+        } catch (sErr) {
           await authAPI.register({
             name: demoName,
             email: demoEmail,
             password: demoPass,
-            role: 'patient'
+            role: demoRole
           });
-          const user = await login(demoEmail, demoPass);
-          redirectByRole(user.role);
-        } else if (demoRole === 'admin') {
-          await authAPI.register({
-            name: demoName,
-            email: demoEmail,
-            password: demoPass,
-            role: 'admin'
-          });
-          const user = await login(demoEmail, demoPass);
-          redirectByRole(user.role);
-        } else {
-          setError('Demo doctor account not yet created. Please log in as Admin first to onboard doctors, or use Patient demo.');
         }
+        const user = await login(demoEmail, demoPass);
+        redirectByRole(user.role);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Demo authentication failed');
+      setError(err.response?.data?.message || 'Demo authentication failed. Please try again.');
     } finally {
       setDemoLoading(false);
     }
