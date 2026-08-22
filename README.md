@@ -1,148 +1,66 @@
-# HealthSlot — Healthcare Appointment & Follow-up Manager
+# HealthSlot
 
-> A full-stack healthcare appointment and follow-up management platform featuring role-based portals (**Patient**, **Doctor**, **Admin**), AI clinical triage summaries, patient-friendly post-visit notes, automated medication reminder background jobs, 2-way Google Calendar OAuth 2.0 sync, and robust double-booking prevention.
-
----
-
-## 🌟 Key Capabilities
-
-1. **Role-Based Portals**:
-   - **Patient Portal**: Discover specialists, pick dynamically calculated non-conflicting slots, submit symptoms for AI clinical triage, manage active appointments, cancel visits, and track daily medication reminders.
-   - **Doctor Portal**: Daily queue and consultation schedule, review patient symptoms with **AI Pre-Visit Briefings** (Urgency badge, chief complaint, 3 diagnostic questions), write clinical consultation notes, and generate patient-friendly summaries with digital prescriptions.
-   - **Admin Portal**: Metric dashboards, onboard new doctors (specialization, working hours, working days, slot duration), and assign leave days with automated conflict resolution & patient cancellation alerts.
-
-2. **AI Clinical Intelligence**:
-   - **Pre-Visit Triage**: Analyzes patient symptoms to determine urgency (`Low`, `Medium`, `High`), extracts the chief complaint, and drafts 3 diagnostic questions for the doctor.
-   - **Post-Visit Patient Summary**: Translates dense doctor clinical notes into reassuring, plain-language patient summaries with dosage instructions and next steps.
-   - **Graceful Fallback**: Resilient fallback engine supporting **Google Gemini API**, **Local Ollama**, and **Heuristic Medical Triage** ensuring 100% uptime with zero downtime.
-
-3. **Concurrency & Double-Booking Prevention**:
-   - MongoDB compound unique index `{ doctor: 1, slotStart: 1 }` with `partialFilterExpression: { status: 'booked' }`.
-   - Simultaneous collision attempts trigger atomic constraint verification returning clean `HTTP 409 Conflict`.
-
-4. **Doctor Leave Conflict Resolution**:
-   - When an admin marks a doctor on leave, the system queries all conflicting active bookings, marks them `cancelled`, and sends automated notification emails to affected patients.
-
-5. **Medication Reminder Engine**:
-   - Daily background cron job (`node-cron`) automatically calculates elapsed prescription days against `durationDays` and sends reminder emails.
-
-6. **Google Calendar 2-Way Synchronization**:
-   - OAuth 2.0 integration allowing both patients and doctors to automatically sync booked appointments into their Google Calendars, with automatic event removal upon cancellation.
+HealthSlot is a web platform designed to streamline outpatient appointment booking, clinical consultation preparation, and post-visit patient follow-ups. It provides role-specific dashboards for patients, doctors, and clinic administrators, alongside automated pre-visit symptom evaluation and daily medication reminder jobs.
 
 ---
 
-## 🏗 System Architecture
-
-```
-healthcare_appointment/
-├── backend/
-│   ├── server.js                      # Express API entry point & cron bootstrap
-│   ├── .env.example                   # Environment configuration template
-│   ├── models/
-│   │   ├── User.js                    # User authentication & Google refresh tokens
-│   │   ├── Doctor.js                  # Doctor profiles, working hours, days, leaves
-│   │   ├── Appointment.js             # Appointments with AI triage & summaries
-│   │   └── MedicationReminder.js      # Prescriptions & daily reminder schedules
-│   ├── controllers/
-│   │   ├── authController.js          # Register, Login, GetMe
-│   │   ├── patientController.js       # Doctor search, slot generator, book, cancel
-│   │   ├── doctorController.js        # Doctor queue, clinical notes, profile
-│   │   └── adminController.js         # Stats, doctor CRUD, leave manager
-│   ├── routes/
-│   │   ├── authRoutes.js              # /api/auth
-│   │   ├── patientRoutes.js           # /api/patient
-│   │   ├── doctorRoutes.js            # /api/doctor
-│   │   ├── adminRoutes.js             # /api/admin
-│   │   └── calendarRoutes.js          # /api/calendar
-│   ├── middleware/
-│   │   └── authMiddleware.js          # JWT verification & role-based authorization
-│   ├── services/
-│   │   ├── slotService.js             # Dynamic slot calculation engine
-│   │   ├── llmService.js              # Gemini / Ollama / Heuristic triage
-│   │   ├── emailService.js            # HTML templates & email dispatcher
-│   │   └── calendarService.js         # Google Calendar OAuth 2.0 API
-│   └── jobs/
-│       └── reminderJob.js             # Daily automated cron job (9 AM)
-├── frontend/
-│   ├── src/
-│   │   ├── components/                # Navbar, UrgencyBadge, CalendarModal, ProtectedRoute
-│   │   ├── context/                   # AuthContext with 1-click Demo credentials
-│   │   ├── pages/                     # LandingPage, LoginPage, RegisterPage
-│   │   │   ├── patient/               # PatientDashboard, DoctorSearch, SlotModal, etc.
-│   │   │   ├── doctor/                # DoctorDashboard, AppointmentCard, VisitNotesModal
-│   │   │   └── admin/                 # AdminDashboard, DoctorManagement, LeaveManagerModal
-│   │   └── services/api.js            # Axios client with JWT interceptor
-│   ├── tailwind.config.js
-│   └── vite.config.js
-├── README.md
-└── SYSTEM_DESIGN.md
-```
-
----
-
-## 🚀 Quick Start Guide
+## Getting Started
 
 ### Prerequisites
-- **Node.js**: v18+ (Tested on v22)
-- **MongoDB**: Local MongoDB instance (`mongodb://localhost:27017`) or MongoDB Atlas URI.
+
+- Node.js (version 18 or higher)
+- MongoDB instance (local service or MongoDB Atlas URI)
+- npm or yarn
 
 ---
 
-### Step 1: Configure Backend Environment
+### 1. Setting Up the Backend
 
-Navigate to `backend/` and copy `.env.example` to `.env`:
+Navigate to the `backend` directory and copy the environment template:
 
 ```bash
 cd backend
 cp .env.example .env
 ```
 
-Edit `backend/.env` with your settings:
+Update `backend/.env` with your configuration:
 
 ```env
 PORT=5000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 MONGO_URI=mongodb://localhost:27017/healthcare_appointment
-JWT_SECRET=your_super_secret_jwt_key_2026
+JWT_SECRET=your_jwt_secret_key
 
-# Optional: Google Gemini API for cloud LLM triage
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# Optional: Local Ollama
+# Optional: LLM Integration (falls back to built-in rule-based triage if omitted)
+GEMINI_API_KEY=
 OLLAMA_URL=http://localhost:11434/api/chat
 OLLAMA_MODEL=llama3
 
-# Optional: Nodemailer SMTP
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASS=your_gmail_app_password
+# Optional: Email Service
+EMAIL_USER=
+EMAIL_PASS=
 
 # Optional: Google Calendar OAuth 2.0
-GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:5000/api/calendar/oauth/callback
 ```
 
-> **Note**: If `GEMINI_API_KEY` or `OLLAMA_URL` are not provided, the built-in clinical triage heuristic fallback will activate automatically, ensuring all triage assessments function out of the box!
-
----
-
-### Step 2: Start the Backend Server
+Install dependencies and start the backend development server:
 
 ```bash
-cd backend
 npm install
 npm run dev
-# or: node server.js
 ```
 
-Backend will start on `http://localhost:5000`.
+The API service runs on `http://localhost:5000`.
 
 ---
 
-### Step 3: Start the Frontend Application
+### 2. Setting Up the Frontend
 
-In a new terminal window:
+Open a new terminal window, navigate to the `frontend` directory, install the required packages, and launch Vite:
 
 ```bash
 cd frontend
@@ -150,25 +68,25 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+The user interface will be accessible at `http://localhost:5173`.
 
 ---
 
-## ⚡ 1-Click Demo Accounts
+## Demo Accounts
 
-On the **Login Page** (`http://localhost:5173/login`), click any of the **Quick 1-Click Demo** buttons to immediately test the platform:
+For immediate testing, you can use the pre-seeded credentials or click the corresponding 1-click login buttons on the sign-in page:
 
-| Role | Demo Email | Demo Password | Capabilities |
+| Role | Email | Password | Access Scope |
 |---|---|---|---|
-| **Patient** | `patient@demo.com` | `patient123` | Book slots, AI symptom triage, cancel visits, medication tracking |
-| **Doctor** | `doctor@demo.com` | `doctor123` | Consultation queue, AI pre-visit briefing, complete notes, prescriptions |
-| **Admin** | `admin@demo.com` | `admin123` | Onboard doctors, configure practice hours, assign leave days, clinic stats |
+| Patient | patient@demo.com | patient123 | Doctor search, appointment booking, symptom intake, medication reminders |
+| Doctor | doctor@demo.com | doctor123 | Consultation queue, pre-visit triage review, clinical notes, prescriptions |
+| Administrator | admin@demo.com | admin123 | Physician directory management, practice hours, leave scheduling, clinic audit ledger |
 
 ---
 
-## 📊 Database Schema Design
+## Database Schemas
 
-### 1. `User` Schema
+### User Model
 ```javascript
 {
   name: { type: String, required: true },
@@ -179,7 +97,7 @@ On the **Login Page** (`http://localhost:5173/login`), click any of the **Quick 
 }
 ```
 
-### 2. `Doctor` Schema
+### Doctor Model
 ```javascript
 {
   user: { type: ObjectId, ref: 'User', required: true, unique: true },
@@ -194,7 +112,7 @@ On the **Login Page** (`http://localhost:5173/login`), click any of the **Quick 
 }
 ```
 
-### 3. `Appointment` Schema
+### Appointment Model
 ```javascript
 {
   patient: { type: ObjectId, ref: 'User', required: true },
@@ -213,11 +131,10 @@ On the **Login Page** (`http://localhost:5173/login`), click any of the **Quick 
   calendarEventIdPatient: String,
   calendarEventIdDoctor: String
 }
-// Unique compound index preventing double-booking
-index({ doctor: 1, slotStart: 1 }, { unique: true, partialFilterExpression: { status: 'booked' } });
 ```
+*Note: A compound unique index `{ doctor: 1, slotStart: 1 }` with `{ partialFilterExpression: { status: 'booked' } }` is enforced at the database level to prevent double-booking.*
 
-### 4. `MedicationReminder` Schema
+### Medication Reminder Model
 ```javascript
 {
   appointment: { type: ObjectId, ref: 'Appointment', required: true },
@@ -233,56 +150,57 @@ index({ doctor: 1, slotStart: 1 }, { unique: true, partialFilterExpression: { st
 
 ---
 
-## 📡 API Reference
+## API Documentation
 
 ### Authentication (`/api/auth`)
-| Method | Endpoint | Auth | Description |
+| Method | Endpoint | Authorization | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | None | Register new user account |
-| `POST` | `/api/auth/login` | None | Authenticate user & return JWT |
-| `GET` | `/api/auth/me` | Bearer | Get current authenticated user profile & calendar status |
+| POST | /api/auth/register | Public | Create a new user account |
+| POST | /api/auth/login | Public | Authenticate credentials and return JWT token |
+| GET | /api/auth/me | Bearer Token | Fetch authenticated user profile and calendar sync status |
 
-### Patient Endpoints (`/api/patient`)
-| Method | Endpoint | Auth | Role | Description |
+### Patient Services (`/api/patient`)
+| Method | Endpoint | Authorization | Role | Description |
 |---|---|---|---|---|
-| `GET` | `/api/patient/doctors` | Bearer | All | Search doctors by specialization |
-| `GET` | `/api/patient/doctors/:id/slots?date=YYYY-MM-DD` | Bearer | All | Get real-time available time slots |
-| `POST` | `/api/patient/appointments` | Bearer | `patient` | Book slot with symptom AI pre-triage |
-| `GET` | `/api/patient/appointments` | Bearer | `patient` | Get all patient appointments |
-| `GET` | `/api/patient/reminders` | Bearer | `patient` | Get active/past medication schedules |
-| `PUT` | `/api/patient/appointments/:id/cancel` | Bearer | `patient` | Cancel appointment & remove calendar event |
+| GET | /api/patient/doctors | Bearer Token | Any | List practicing doctors filtered by specialization |
+| GET | /api/patient/doctors/:id/slots | Bearer Token | Any | Compute available slots for a given date |
+| POST | /api/patient/appointments | Bearer Token | Patient | Book a slot with symptom intake & AI pre-triage |
+| GET | /api/patient/appointments | Bearer Token | Patient | Fetch patient booking history |
+| GET | /api/patient/reminders | Bearer Token | Patient | Fetch active and past medication reminder schedules |
+| PUT | /api/patient/appointments/:id/cancel | Bearer Token | Patient | Cancel an appointment and release slot |
 
-### Doctor Endpoints (`/api/doctor`)
-| Method | Endpoint | Auth | Role | Description |
+### Doctor Services (`/api/doctor`)
+| Method | Endpoint | Authorization | Role | Description |
 |---|---|---|---|---|
-| `GET` | `/api/doctor/appointments` | Bearer | `doctor` | Fetch doctor queue with AI triage briefings |
-| `GET` | `/api/doctor/profile` | Bearer | `doctor` | View doctor working hours & leave days |
-| `PUT` | `/api/doctor/appointments/:id/complete` | Bearer | `doctor` | Submit clinical notes, prescription & AI summary |
+| GET | /api/doctor/appointments | Bearer Token | Doctor | Retrieve consultation schedule with AI pre-visit briefing |
+| GET | /api/doctor/profile | Bearer Token | Doctor | View practicing hours, days, and slot duration |
+| PUT | /api/doctor/appointments/:id/complete | Bearer Token | Doctor | Save clinical notes, generate patient summary, and create reminder |
 
-### Admin Endpoints (`/api/admin`)
-| Method | Endpoint | Auth | Role | Description |
+### Administration (`/api/admin`)
+| Method | Endpoint | Authorization | Role | Description |
 |---|---|---|---|---|
-| `GET` | `/api/admin/stats` | Bearer | `admin` | Overall clinic metrics & KPIs |
-| `GET` | `/api/admin/doctors` | Bearer | `admin` | List all practicing doctors |
-| `POST` | `/api/admin/doctors` | Bearer | `admin` | Onboard new doctor profile |
-| `DELETE` | `/api/admin/doctors/:id` | Bearer | `admin` | Remove doctor profile |
-| `POST` | `/api/admin/doctors/:id/leave` | Bearer | `admin` | Mark doctor leave & cancel conflicting visits |
-| `GET` | `/api/admin/appointments` | Bearer | `admin` | Global clinic audit ledger |
+| GET | /api/admin/stats | Bearer Token | Admin | Fetch system KPIs and aggregate metrics |
+| GET | /api/admin/doctors | Bearer Token | Admin | List all registered physicians |
+| POST | /api/admin/doctors | Bearer Token | Admin | Onboard a new physician profile |
+| DELETE | /api/admin/doctors/:id | Bearer Token | Admin | Remove a physician profile from directory |
+| POST | /api/admin/doctors/:id/leave | Bearer Token | Admin | Record physician leave and handle existing bookings |
+| GET | /api/admin/appointments | Bearer Token | Admin | View clinic-wide appointment ledger |
 
-### Google Calendar (`/api/calendar`)
-| Method | Endpoint | Auth | Description |
+### Calendar Integration (`/api/calendar`)
+| Method | Endpoint | Authorization | Description |
 |---|---|---|---|
-| `GET` | `/api/calendar/connect` | Bearer | Generate Google OAuth 2.0 authorization URL |
-| `GET` | `/api/calendar/status` | Bearer | Get Google Calendar connection state |
-| `POST` | `/api/calendar/disconnect` | Bearer | Revoke / clear Google Calendar refresh token |
-| `GET` | `/api/calendar/oauth/callback` | None | OAuth 2.0 exchange callback |
+| GET | /api/calendar/connect | Bearer Token | Generate OAuth 2.0 authorization URL |
+| POST | /api/calendar/connect-demo | Bearer Token | Enable instantaneous local demo sync |
+| GET | /api/calendar/status | Bearer Token | Check active calendar connection state |
+| POST | /api/calendar/disconnect | Bearer Token | Revoke stored calendar authorization tokens |
+| GET | /api/calendar/oauth/callback | Public | OAuth callback receiver for token exchange |
 
 ---
 
-## 🤖 LLM Prompts & Guidance
+## AI Prompt Templates
 
-### 1. Pre-Visit Clinical Triage
-```
+### Pre-Visit Clinical Triage
+```text
 Analyse these symptoms and return ONLY a valid JSON object in this exact format with no extra text:
 {
   "urgency": "Low" | "Medium" | "High",
@@ -293,8 +211,8 @@ Analyse these symptoms and return ONLY a valid JSON object in this exact format 
 Symptoms: <symptomsText>
 ```
 
-### 2. Post-Visit Patient Summary
-```
+### Post-Visit Patient Summary
+```text
 Convert these clinical notes into a simple, patient-friendly summary.
 Include a medication schedule and follow-up steps if mentioned. Write it in plain, reassuring language a non-medical person can understand.
 
@@ -303,28 +221,11 @@ Clinical notes: <clinicalNotes>
 
 ---
 
-## 📅 Google Calendar OAuth 2.0 Setup
+## Google Calendar Setup
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a project and enable the **Google Calendar API**.
-3. Under **APIs & Services > Credentials**, create an **OAuth 2.0 Client ID** (Web application).
-4. Add Authorized redirect URI:
-   `http://localhost:5000/api/calendar/oauth/callback` (or your production backend URL).
-5. Copy the Client ID and Client Secret into `backend/.env`.
-
----
-
-## 🌐 Production Deployment Guide
-
-### Deploying Backend (e.g. Render / Railway)
-1. Push code to GitHub.
-2. Create a **Web Service** on Render/Railway pointing to the `backend/` directory.
-3. Build Command: `npm install`
-4. Start Command: `node server.js`
-5. Add Environment Variables from `backend/.env.example` (set `MONGO_URI` to MongoDB Atlas).
-
-### Deploying Frontend (e.g. Vercel)
-1. Import the repository on Vercel and select the `frontend/` directory as the root.
-2. Build Command: `npm run build`
-3. Output Directory: `dist`
-4. Set Environment Variable `VITE_API_URL` to your deployed backend URL (e.g. `https://your-api.onrender.com/api`).
+1. Open the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a new project and enable the **Google Calendar API**.
+3. Under **Credentials**, create an **OAuth 2.0 Client ID** configured as a Web application.
+4. Set the Authorized redirect URI to:
+   `http://localhost:5000/api/calendar/oauth/callback`
+5. Copy the generated Client ID and Client Secret into `backend/.env`.
