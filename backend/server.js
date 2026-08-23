@@ -36,30 +36,25 @@ app.use('/api/patient', patientRoutes);
 app.use('/api/doctor', doctorRoutes);
 app.use('/api/calendar', calendarRoutes);
 
-// --- Email Test/Diagnostics Route ---
+// --- Email Test/Diagnostics Route (Brevo HTTP API) ---
 app.get('/api/test-email', async (req, res) => {
-  const nodemailer = require('nodemailer');
-  const to = req.query.to || process.env.EMAIL_USER;
-  const user = process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : null;
-  const rawPass = process.env.EMAIL_PASS ? String(process.env.EMAIL_PASS) : '';
-  const pass = rawPass.replace(/\s+/g, '').trim();
+  const { sendEmail } = require('./services/emailService');
+  const to = (req.query.to || process.env.EMAIL_USER || '').trim();
+  const apiKey = process.env.BREVO_API_KEY ? process.env.BREVO_API_KEY.trim() : null;
 
-  if (!user || !pass) {
-    return res.json({ success: false, error: 'EMAIL_USER or EMAIL_PASS not set in environment variables', EMAIL_USER: user || 'NOT SET', EMAIL_PASS_LENGTH: pass.length });
+  if (!to) {
+    return res.json({ success: false, error: 'Provide ?to=your@email.com in the URL' });
+  }
+  if (!apiKey) {
+    return res.json({ success: false, error: 'BREVO_API_KEY is not set in environment variables' });
   }
 
-  try {
-    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
-    const info = await transporter.sendMail({
-      from: `"HealthSlot Test" <${user}>`,
-      to,
-      subject: 'HealthSlot Email Diagnostics Test',
-      html: '<h2 style="color:#0F766E">HealthSlot Email is Working!</h2><p>If you received this, email delivery is fully functional.</p>'
-    });
-    res.json({ success: true, messageId: info.messageId, sentTo: to, from: user });
-  } catch (err) {
-    res.json({ success: false, error: err.message, code: err.code, sentTo: to, from: user, EMAIL_PASS_LENGTH: pass.length });
-  }
+  const result = await sendEmail(
+    to,
+    'HealthSlot Email Diagnostics Test',
+    '<h2 style="color:#0F766E">HealthSlot Email is Working!</h2><p>If you received this, Brevo email delivery is fully functional on your deployment.</p>'
+  );
+  res.json({ ...result, sentTo: to, brevo_api_key_set: true });
 });
 
 const connectDB = async () => {

@@ -1,48 +1,63 @@
-const nodemailer = require('nodemailer');
+const https = require('https');
 
-const getTransporter = () => {
-  const user = process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : null;
-  const rawPass = process.env.EMAIL_PASS ? String(process.env.EMAIL_PASS) : '';
-  const pass = rawPass.replace(/\s+/g, '').trim();
-
-  if (!user || !pass) return null;
-
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user,
-      pass
-    }
-  });
-};
-
+// Send email via Brevo HTTP API (no SMTP port issues on cloud servers)
 const sendEmail = async (to, subject, htmlContent) => {
   if (!to) return { success: false, error: 'No recipient email specified' };
 
-  const transporter = getTransporter();
+  const apiKey = process.env.BREVO_API_KEY ? process.env.BREVO_API_KEY.trim() : null;
+  const senderEmail = process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : 'healthcaredemo.app@gmail.com';
 
-  if (!transporter) {
-    console.log(`\n[EMAIL SERVICE CONSOLE LOG (SMTP not configured)]`);
+  if (!apiKey) {
+    console.log(`\n[EMAIL SERVICE CONSOLE LOG (Brevo API key not configured)]`);
     console.log(`To: ${to}`);
     console.log(`Subject: ${subject}`);
     console.log(`Content:\n${htmlContent.replace(/<[^>]*>?/gm, ' ').trim()}\n`);
     return { success: true, mock: true };
   }
 
-  try {
-    const sender = process.env.EMAIL_USER?.trim() || 'noreply@healthslot.com';
-    const info = await transporter.sendMail({
-      from: `"HealthSlot" <${sender}>`,
-      to: to.trim(),
-      subject,
-      html: htmlContent
+  const payload = JSON.stringify({
+    sender: { name: 'HealthSlot', email: senderEmail },
+    to: [{ email: to.trim() }],
+    subject,
+    htmlContent
+  });
+
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.brevo.com',
+      path: '/v3/smtp/email',
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(payload)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          const parsed = JSON.parse(data);
+          console.log(`Email dispatched to ${to} (${subject}): messageId=${parsed.messageId}`);
+          resolve({ success: true, messageId: parsed.messageId });
+        } else {
+          console.log(`Email delivery failed to ${to}: HTTP ${res.statusCode} - ${data}`);
+          resolve({ success: false, error: `HTTP ${res.statusCode}: ${data}` });
+        }
+      });
     });
-    console.log(`Email dispatched to ${to} (${subject}): ${info.messageId}`);
-    return { success: true, messageId: info.messageId };
-  } catch (err) {
-    console.log(`Email delivery failed to ${to}:`, err.message);
-    return { success: false, error: err.message };
-  }
+
+    req.on('error', (err) => {
+      console.log(`Email request error to ${to}:`, err.message);
+      resolve({ success: false, error: err.message });
+    });
+
+    req.write(payload);
+    req.end();
+  });
 };
 
 const bookingConfirmationEmail = (name, doctorName, slotStart) => `
@@ -54,7 +69,7 @@ const bookingConfirmationEmail = (name, doctorName, slotStart) => `
     <p style="font-size: 15px; color: #0F172A;">Hi <strong>${name}</strong>,</p>
     <p style="font-size: 14px; color: #334155; line-height: 1.6;">Your healthcare appointment with <strong>Dr. ${doctorName}</strong> has been successfully confirmed.</p>
     <div style="background-color: #f0fdfa; padding: 16px; border-left: 4px solid #0F766E; border-radius: 6px; margin: 20px 0;">
-      <p style="margin: 0; font-size: 15px; color: #0F172A;"><strong>Scheduled Date & Time:</strong></p>
+      <p style="margin: 0; font-size: 15px; color: #0F172A;"><strong>Scheduled Date &amp; Time:</strong></p>
       <p style="margin: 4px 0 0 0; font-size: 16px; font-weight: bold; color: #0F766E;">${new Date(slotStart).toLocaleString()}</p>
     </div>
     <p style="font-size: 13px; color: #64748B; line-height: 1.5;">Please arrive 10 minutes prior to your consultation. You can view clinical triage notes, AI summaries, and manage your visit directly in your HealthSlot patient portal.</p>
@@ -94,7 +109,7 @@ const medicationReminderEmail = (name, medName) => `
     <p>Hi <strong>${name}</strong>,</p>
     <p>This is your daily health reminder to take your prescribed medication:</p>
     <div style="background-color: #f0fdfa; padding: 14px; border-radius: 8px; margin: 14px 0;">
-      <p style="margin: 0; font-size: 18px; font-weight: bold; color: #0F766E;">💊 ${medName}</p>
+      <p style="margin: 0; font-size: 18px; font-weight: bold; color: #0F766E;">${medName}</p>
     </div>
     <p style="font-size: 12px; color: #64748B;">Stay consistent with your prescribed dosage course for optimal health.</p>
   </div>
