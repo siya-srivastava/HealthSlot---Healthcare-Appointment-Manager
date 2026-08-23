@@ -36,6 +36,32 @@ app.use('/api/patient', patientRoutes);
 app.use('/api/doctor', doctorRoutes);
 app.use('/api/calendar', calendarRoutes);
 
+// --- Email Test/Diagnostics Route ---
+app.get('/api/test-email', async (req, res) => {
+  const nodemailer = require('nodemailer');
+  const to = req.query.to || process.env.EMAIL_USER;
+  const user = process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : null;
+  const rawPass = process.env.EMAIL_PASS ? String(process.env.EMAIL_PASS) : '';
+  const pass = rawPass.replace(/\s+/g, '').trim();
+
+  if (!user || !pass) {
+    return res.json({ success: false, error: 'EMAIL_USER or EMAIL_PASS not set in environment variables', EMAIL_USER: user || 'NOT SET', EMAIL_PASS_LENGTH: pass.length });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } });
+    const info = await transporter.sendMail({
+      from: `"HealthSlot Test" <${user}>`,
+      to,
+      subject: 'HealthSlot Email Diagnostics Test',
+      html: '<h2 style="color:#0F766E">HealthSlot Email is Working!</h2><p>If you received this, email delivery is fully functional.</p>'
+    });
+    res.json({ success: true, messageId: info.messageId, sentTo: to, from: user });
+  } catch (err) {
+    res.json({ success: false, error: err.message, code: err.code, sentTo: to, from: user, EMAIL_PASS_LENGTH: pass.length });
+  }
+});
+
 const connectDB = async () => {
   const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
   if (mongoUri) {
